@@ -1,0 +1,29 @@
+name: "Bug Bounty Hunter"
+description: "Web application reconnaissance and vulnerability scanning tools"
+version: "1.0.0"
+author: "NullC0d3"
+warning: false
+docker: false
+
+go:
+  - "amass github.com/owasp-amass/amass/v4/...@master"
+  - "subfinder github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest"
+  - "assetfinder github.com/tomnomnom/assetfinder@latest"
+  - "httpx github.com/projectdiscovery/httpx/cmd/httpx@latest"
+  - "nuclei github.com/projectdiscovery/nuclei/v2/cmd/nuclei@latest"
+  - "katana github.com/projectdiscovery/katana/cmd/katana@latest"
+  - "gau github.com/lc/gau/v2/cmd/gau@latest"
+  - "waybackurls github.com/tomnomnom/waybackurls@latest"
+  - "ffuf github.com/ffuf/ffuf/v2@latest"
+  - "dalfox github.com/hahwul/dalfox/v2@latest"
+
+pipx:
+  - "dirsearch dirsearch"
+  - "xsstrike git+https://github.com/s0md3v/XSStrike.git"
+  - "arjun arjun"
+
+native:
+  - "sqlmap/sqlmap/sqlmap"
+
+custom:
+  - "if [ \"${OS_NAME}\" = \"kali\" ]; then apt-get install -y burpsuite 2>/dev/null; else echo 'Burp Suite Community: Manual download required for this OS.'; fi"

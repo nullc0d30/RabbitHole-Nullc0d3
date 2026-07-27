@@ -1,0 +1,741 @@
+#!/bin/bash
+# ==============================================================================
+# RABBITHOLE - Cybersecurity Environment Provisioning Framework
+# ==============================================================================
+# Entrypoint for the RabbitHole framework. Dispatches to the appropriate
+# subcommand or launches the interactive installer.
+#
+# Usage:
+#   rabbithole                    Interactive role-based installer
+#   rabbithole install [role..]   Install specific roles
+#   rabbithole remove  [role..]   Remove specific roles
+#   rabbithole status             Show installation status
+#   rabbithole verify             Verify installed tools
+#   rabbithole doctor             Health check
+#   rabbithole update             Update tools
+#   rabbithole snapshot           Generate state snapshot
+#   rabbithole restore <file>     Restore from snapshot
+#   rabbithole cache build|clean  Manage download cache
+#   rabbithole benchmark          Run system benchmarks
+#   rabbithole --dry-run          Preview without installing
+#   rabbithole --version          Show version
+#   rabbithole --help             Show help
+# ==============================================================================
+
+set -o errexit
+set -o pipefail
+
+# Framework root detection
+RABBIT_ROOT="$(cd "$(dirname "$(dirname "${BASH_SOURCE[0]}")")" && pwd)"
+RABBIT_LIB_DIR="${RABBIT_ROOT}/lib"
+RABBIT_VERSION="2.0.0"
+
+# ------------------------------------------------------------------------------
+# Source all library modules
+# ------------------------------------------------------------------------------
+_source_lib() {
+    local module
+    for module in "${RABBIT_LIB_DIR}"/*.sh; do
+        if [[ -f "${module}" ]]; then
+            # shellcheck source=/dev/null
+            source "${module}"
+        fi
+    done
+}
+_source_lib
+
+# ------------------------------------------------------------------------------
+# Default configuration
+# ------------------------------------------------------------------------------
+RABBIT_LOG_FILE="${RABBIT_LOG_FILE:-./rabbithole.log}"
+RABBIT_DRY_RUN="${RABBIT_DRY_RUN:-false}"
+RABBIT_INSTALL_DIR="${RABBIT_INSTALL_DIR:-/opt/rabbithole}"
+RABBIT_BIN_DIR="${RABBIT_BIN_DIR:-/usr/local/bin}"
+RABBIT_BUILTIN_ROLES_DIR="${RABBIT_ROOT}/roles"
+
+# ------------------------------------------------------------------------------
+# Show banner
+# ------------------------------------------------------------------------------
+_show_banner() {
+    echo -e "\033[0;31m"
+    echo "    █▀▀█ █▀▀█ █▀▀▄ █▀▀▄ ▀█▀ ▀▀█▀▀ █   █ █▀▀█ █   █▀▀"
+    echo "    █▄▄▀ █▄▄█ █▀▀▄ █▀▀▄  █    █   █▀▀▄█ █  █ █   █▀▀"
+    echo "    ▀  ▀ ▀  ▀ ▀▀▀  ▀▀▀  ▀▀▀   ▀   ▀   ▀ ▀▀▀▀ ▀▀▀ ▀▀▀"
+    echo -e "\033[0m"
+    echo "                  By NULLC0D3"
+    echo "  Cybersecurity Environment Provisioning Framework v${RABBIT_VERSION}"
+    echo "------------------------------------------------------------"
+}
+
+# ------------------------------------------------------------------------------
+# Usage / help
+# ------------------------------------------------------------------------------
+_usage() {
+    _show_banner
+    echo "Usage: rabbithole [command] [options]"
+    echo ""
+    echo "Commands:"
+    echo "  (no command)    Interactive role-based installer"
+    echo "  install [role]  Install one or more roles"
+    echo "  remove  [role]  Remove one or more roles"
+    echo "  status          Show installation status"
+    echo "  verify          Verify installed tools and dependencies"
+    echo "  doctor          Comprehensive health check"
+    echo "  update          Update installed tools"
+    echo "  snapshot        Export state snapshot to JSON"
+    echo "  restore <file>  Restore state from snapshot"
+    echo "  cache build     Build download cache"
+    echo "  cache clean     Clean download cache"
+    echo "  benchmark       Run system benchmarks"
+    echo ""
+    echo "Options:"
+    echo "  --dry-run       Preview changes without installing"
+    echo "  --quiet         Suppress non-essential output"
+    echo "  --version       Show version"
+    echo "  --help          Show this help"
+    echo ""
+    echo "Roles:"
+    while IFS= read -r plugin; do
+        echo "  - ${plugin}"
+    done < <(plugin_list_names)
+    echo ""
+    echo "Examples:"
+    echo "  rabbithole                              # Interactive menu"
+    echo "  rabbithole install osint pentest         # Install specific roles"
+    echo "  rabbithole remove redteam               # Remove a role"
+    echo "  rabbithole doctor                       # Health check"
+    echo "  rabbithole --dry-run install osint      # Preview only"
+    echo "  rabbithole snapshot > backup.json       # Save state"
+}
+
+# ------------------------------------------------------------------------------
+# Show version
+# ------------------------------------------------------------------------------
+_version() {
+    echo "RabbitHole v${RABBIT_VERSION}"
+    echo "Copyright (C) 2026 NullC0d3. All Rights Reserved."
+}
+
+# ------------------------------------------------------------------------------
+# Interactive role selector
+# ------------------------------------------------------------------------------
+_interactive_menu() {
+    _show_banner
+
+    check_root
+    detect_os
+    check_connectivity
+    rabbit_state_init
+
+    rabbit_ensure_all_base
+
+    echo ""
+    echo "SELECT YOUR ROLE(S):"
+
+    local index=0
+    local -a plugin_dirs=()
+    local -a plugin_names=()
+
+    while IFS= read -r yaml; do
+        index=$((index + 1))
+        local dir
+        dir="$(dirname "${yaml}")"
+        plugin_dirs+=("${dir}")
+        local name
+        name="$(plugin_yaml_value "${yaml}" "name")"
+        plugin_names+=("${name}")
+        local desc
+        desc="$(plugin_yaml_value "${yaml}" "description")"
+        local warning=""
+        if [[ "$(plugin_yaml_value "${yaml}" "warning")" == "true" ]]; then
+            warning=" (RESTRICTED)"
+        fi
+        echo "[${index}] ${name}${warning}"
+    done < <(plugin_discover_all)
+
+    echo ""
+    echo "Enter choices separated by space (e.g., '1 3 5') or 'A' for All:"
+    read -p "> " choices
+
+    if [[ "${choices}" =~ [Aa] ]]; then
+        choices=""
+        for ((i=1; i<=${#plugin_dirs[@]}; i++)); do
+            choices="${choices} ${i}"
+        done
+    fi
+
+    for choice_num in ${choices}; do
+        local idx=$((choice_num - 1))
+        if [[ ${idx} -ge 0 ]] && [[ ${idx} -lt ${#plugin_dirs[@]} ]]; then
+            local plugin_dir="${plugin_dirs[${idx}]}"
+            local plugin_name="${plugin_names[${idx}]}"
+            local yaml="${plugin_dir}/plugin.yaml"
+
+            local warning
+            warning="$(plugin_yaml_value "${yaml}" "warning")"
+            if [[ "${warning}" == "true" ]]; then
+                echo -e "\033[0;31m!!! WARNING !!!\033[0m"
+                echo "You have selected ${plugin_name}."
+                echo "These tools are for authorized testing only."
+                read -p "Are you sure? (y/N): " confirm
+                if [[ ! "${confirm}" =~ ^[Yy]$ ]]; then
+                    log_info "Skipping ${plugin_name}."
+                    continue
+                fi
+            fi
+
+            _install_role "${plugin_dir}" "${plugin_name}"
+        fi
+    done
+
+    echo ""
+    log_ok "Installation Procedure Complete."
+    log_info "Tools installed in: ${RABBIT_INSTALL_DIR} or System Path"
+    log_info "Please restart your terminal or source your profile."
+    log_info "Log file: ${RABBIT_LOG_FILE}"
+    echo ""
+    echo "NullC0d3 RabbitHole - Disengage."
+}
+
+# ------------------------------------------------------------------------------
+# Install a role from its plugin directory
+# ------------------------------------------------------------------------------
+_install_role() {
+    local plugin_dir="$1"
+    local plugin_name="$2"
+    local yaml="${plugin_dir}/plugin.yaml"
+
+    log_info ">>> Installing ${plugin_name}..."
+
+    plugin_load "${plugin_dir}" || return 1
+
+    # Check for custom install.sh
+    local install_script
+    install_script="$(plugin_install_script "${plugin_dir}")"
+    if [[ -n "${install_script}" ]]; then
+        log_task "Loading custom install script for ${plugin_name}..."
+        # shellcheck source=/dev/null
+        source "${install_script}"
+    fi
+
+    # Install native packages from manifest
+    while IFS= read -r pkg; do
+        [[ -z "${pkg}" ]] && continue
+        local apt_pkg rpm_pkg pac_pkg
+        apt_pkg="$(echo "${pkg}" | awk -F'/' '{print $1}')"
+        rpm_pkg="$(echo "${pkg}" | awk -F'/' '{print $2}')"
+        pac_pkg="$(echo "${pkg}" | awk -F'/' '{print $3}')"
+        install_native "${apt_pkg}" "${apt_pkg}" "${rpm_pkg:-${apt_pkg}}" "${pac_pkg:-${apt_pkg}}"
+    done < <(plugin_yaml_list "${yaml}" "native")
+
+    # Ensure Go if needed
+    local go_count
+    go_count="$(plugin_yaml_list "${yaml}" "go" | wc -l)"
+    if [[ "${go_count}" -gt 0 ]]; then
+        rabbit_ensure_golang
+    fi
+
+    local tool
+    local path
+
+    while IFS= read -r line; do
+        [[ -z "${line}" ]] && continue
+        tool="$(echo "${line}" | awk '{print $1}')"
+        path="$(echo "${line}" | awk '{print $2}')"
+        [[ -z "${path}" ]] && path="${tool}"
+        install_go "${tool}" "${path}"
+    done < <(plugin_yaml_list "${yaml}" "go")
+
+    # Ensure pipx if needed
+    local pipx_count
+    pipx_count="$(plugin_yaml_list "${yaml}" "pipx" | wc -l)"
+    if [[ "${pipx_count}" -gt 0 ]]; then
+        rabbit_ensure_pipx
+    fi
+
+    while IFS= read -r line; do
+        [[ -z "${line}" ]] && continue
+        tool="$(echo "${line}" | awk '{print $1}')"
+        path="$(echo "${line}" | awk '{print $2}')"
+        [[ -z "${path}" ]] && path="${tool}"
+        install_pipx "${tool}" "${path}"
+    done < <(plugin_yaml_list "${yaml}" "pipx")
+
+    # Git repos
+    while IFS= read -r line; do
+        [[ -z "${line}" ]] && continue
+        tool="$(echo "${line}" | awk '{print $1}')"
+        local url
+        url="$(echo "${line}" | awk '{print $2}')"
+        local script
+        script="$(echo "${line}" | awk '{$1=$2=""; print $0}' | xargs)"
+        install_git "${tool}" "${url}" "${script}"
+    done < <(plugin_yaml_list "${yaml}" "git")
+
+    # Cargo packages
+    local cargo_count
+    cargo_count="$(plugin_yaml_list "${yaml}" "cargo" | wc -l)"
+    if [[ "${cargo_count}" -gt 0 ]]; then
+        rabbit_ensure_cargo
+    fi
+
+    while IFS= read -r line; do
+        [[ -z "${line}" ]] && continue
+        tool="$(echo "${line}" | awk '{print $1}')"
+        local crate
+        crate="$(echo "${line}" | awk '{print $2}')"
+        [[ -z "${crate}" ]] && crate="${tool}"
+        install_cargo "${tool}" "${crate}"
+    done < <(plugin_yaml_list "${yaml}" "cargo")
+
+    # Wget downloads
+    while IFS= read -r line; do
+        [[ -z "${line}" ]] && continue
+        tool="$(echo "${line}" | awk '{print $1}')"
+        local url
+        url="$(echo "${line}" | awk '{print $2}')"
+        install_wget "${tool}" "${url}"
+    done < <(plugin_yaml_list "${yaml}" "wget")
+
+    # Docker services
+    if [[ "$(plugin_yaml_value "${yaml}" "docker")" == "true" ]]; then
+        rabbit_ensure_docker
+        log_info "Docker services required for ${plugin_name}."
+        local deploy
+        read -p "Deploy Docker infrastructure for ${plugin_name}? (y/N): " deploy
+        if [[ "${deploy}" =~ ^[Yy]$ ]]; then
+            if [[ "$(plugin_yaml_value "${yaml}" "docker_stack")" == "threat-intel" ]]; then
+                docker_deploy_threat_stack
+            fi
+        fi
+    fi
+
+    # Custom commands
+    while IFS= read -r line; do
+        [[ -z "${line}" ]] && continue
+        install_custom "${plugin_name}" "${line}"
+    done < <(plugin_yaml_list "${yaml}" "custom")
+
+    rabbit_state_record_role "${plugin_name}" "installed"
+    log_ok "${plugin_name} installation complete."
+}
+
+# ------------------------------------------------------------------------------
+# CLI subcommand: install
+# ------------------------------------------------------------------------------
+_cmd_install() {
+    check_root
+    detect_os
+    check_connectivity
+    rabbit_state_init
+    rabbit_ensure_all_base
+
+    if [[ $# -eq 0 ]]; then
+        _interactive_menu
+        return 0
+    fi
+
+    for role_name in "$@"; do
+        local plugin_dir
+        plugin_dir="$(plugin_find_by_name "${role_name}")"
+        if [[ -z "${plugin_dir}" ]]; then
+            log_warn "Unknown role: ${role_name}. Skipping."
+            continue
+        fi
+        _install_role "${plugin_dir}" "${role_name}"
+    done
+}
+
+# ------------------------------------------------------------------------------
+# CLI subcommand: status
+# ------------------------------------------------------------------------------
+_cmd_status() {
+    rabbit_state_init
+    echo "RabbitHole Status"
+    echo "================="
+    echo ""
+    echo "Installed Roles:"
+    local has_roles=false
+    while IFS= read -r role; do
+        echo "  - ${role}"
+        has_roles=true
+    done < <(rabbit_state_get_installed_roles)
+    if [[ "${has_roles}" == "false" ]]; then
+        echo "  (none)"
+    fi
+    echo ""
+    echo "Installed Tools:"
+    local has_tools=false
+    while IFS= read -r tool; do
+        echo "  - ${tool}"
+        has_tools=true
+    done < <(rabbit_state_get_installed_tools)
+    if [[ "${has_tools}" == "false" ]]; then
+        echo "  (none)"
+    fi
+}
+
+# ------------------------------------------------------------------------------
+# CLI subcommand: verify
+# ------------------------------------------------------------------------------
+_cmd_verify() {
+    rabbit_state_init
+    log_info "Verifying RabbitHole installation..."
+    local errors=0
+
+    # PATH check
+    if ! echo "${PATH}" | tr ':' '\n' | grep -q "${RABBIT_BIN_DIR}"; then
+        log_warn "${RABBIT_BIN_DIR} not in PATH"
+        errors=$((errors + 1))
+    fi
+
+    # Dependency checks
+    local deps=("docker" "go" "python3" "pipx" "git" "wget" "curl")
+    for dep in "${deps[@]}"; do
+        if command -v "${dep}" &> /dev/null; then
+            log_ok "${dep}: $(command -v "${dep}")"
+        else
+            log_warn "${dep}: NOT FOUND"
+            errors=$((errors + 1))
+        fi
+    done
+
+    # Cargo check
+    if command -v cargo &> /dev/null; then
+        log_ok "cargo: $(cargo --version 2>/dev/null | head -1)"
+    fi
+
+    # Installed binary checks
+    while IFS= read -r tool; do
+        if command -v "${tool}" &> /dev/null; then
+            log_ok "${tool}: $(command -v "${tool}")"
+        else
+            log_warn "${tool}: binary not found in PATH"
+            errors=$((errors + 1))
+        fi
+    done < <(rabbit_state_get_installed_tools)
+
+    if [[ ${errors} -eq 0 ]]; then
+        log_ok "All checks passed."
+    else
+        log_warn "${errors} issue(s) found."
+    fi
+    return ${errors}
+}
+
+# ------------------------------------------------------------------------------
+# CLI subcommand: doctor
+# ------------------------------------------------------------------------------
+_cmd_doctor() {
+    rabbit_state_init
+    log_info "RabbitHole Health Check"
+    echo ""
+
+    # Disk usage
+    echo "--- Disk Usage ---"
+    if [[ -d "${RABBIT_INSTALL_DIR}" ]]; then
+        du -sh "${RABBIT_INSTALL_DIR}" 2>/dev/null || echo "  (cannot access)"
+    fi
+    df -h / 2>/dev/null | tail -1 || true
+    echo ""
+
+    # Docker status
+    echo "--- Docker Status ---"
+    if command -v docker &> /dev/null; then
+        docker info --format '{{.ServerVersion}}' 2>/dev/null || echo "  Docker: not running"
+    else
+        echo "  Docker: not installed"
+    fi
+    echo ""
+
+    # Installed roles
+    echo "--- Installed Roles ---"
+    while IFS= read -r role; do
+        echo "  - ${role}"
+    done < <(rabbit_state_get_installed_roles)
+    echo ""
+
+    # Broken symlinks
+    echo "--- Broken Symlinks ---"
+    if [[ -d "${RABBIT_BIN_DIR}" ]]; then
+        local broken
+        broken="$(find -L "${RABBIT_BIN_DIR}" -type l 2>/dev/null | head -10)"
+        if [[ -n "${broken}" ]]; then
+            echo "${broken}"
+        else
+            echo "  (none found)"
+        fi
+    fi
+    echo ""
+
+    # State file
+    echo "--- State ---"
+    echo "  State file: ${RABBIT_STATE_FILE}"
+    if [[ -f "${RABBIT_STATE_FILE}" ]]; then
+        echo "  State size: $(wc -c < "${RABBIT_STATE_FILE}") bytes"
+    fi
+}
+
+# ------------------------------------------------------------------------------
+# CLI subcommand: remove
+# ------------------------------------------------------------------------------
+_cmd_remove() {
+    if [[ $# -eq 0 ]]; then
+        log_error "Usage: rabbithole remove <role> [role...]"
+    fi
+
+    rabbit_state_init
+
+    for role_name in "$@"; do
+        log_info "Removing role: ${role_name}..."
+
+        if ! rabbit_state_role_is_installed "${role_name}"; then
+            log_warn "Role '${role_name}' is not installed. Skipping."
+            continue
+        fi
+
+        # Remove tools associated with this role from state
+        while IFS= read -r tool; do
+            log_task "Removing ${tool}..."
+            local target
+            target="$(command -v "${tool}" 2>/dev/null || echo "")"
+            if [[ -n "${target}" ]]; then
+                rm -f "${target}" 2>/dev/null || true
+            fi
+            local go_bin="/root/go/bin/${tool}"
+            if [[ -f "${go_bin}" ]]; then
+                rm -f "${go_bin}" 2>/dev/null || true
+            fi
+            if command -v pipx &> /dev/null; then
+                pipx uninstall "${tool}" >> "${RABBIT_LOG_FILE}" 2>&1 || true
+            fi
+            rabbit_state_remove_tool "${tool}"
+        done < <(rabbit_state_get_installed_tools)
+
+        # Remove cloned repos
+        local plugin_dir
+        plugin_dir="$(plugin_find_by_name "${role_name}")"
+        if [[ -n "${plugin_dir}" ]]; then
+            while IFS= read -r line; do
+                [[ -z "${line}" ]] && continue
+                local tool
+                tool="$(echo "${line}" | awk '{print $1}')"
+                local repo_dir="/opt/${tool}"
+                if [[ -d "${repo_dir}" ]]; then
+                    log_task "Removing ${repo_dir}..."
+                    rm -rf "${repo_dir}"
+                fi
+            done < <(plugin_yaml_list "${plugin_dir}/plugin.yaml" "git")
+        fi
+
+        rabbit_state_remove_role "${role_name}"
+        log_ok "Role '${role_name}' removed."
+    done
+}
+
+# ------------------------------------------------------------------------------
+# CLI subcommand: snapshot
+# ------------------------------------------------------------------------------
+_cmd_snapshot() {
+    rabbit_state_init
+    local output="${1:-${RABBIT_STATE_DIR}/snapshot.json}"
+    rabbit_state_snapshot "${output}"
+}
+
+# ------------------------------------------------------------------------------
+# CLI subcommand: restore
+# ------------------------------------------------------------------------------
+_cmd_restore() {
+    if [[ -z "$1" ]]; then
+        log_error "Usage: rabbithole restore <snapshot_file>"
+    fi
+    rabbit_state_restore "$1"
+}
+
+# ------------------------------------------------------------------------------
+# CLI subcommand: cache
+# ------------------------------------------------------------------------------
+_cmd_cache() {
+    local action="${1:-build}"
+    local cache_dir="${RABBIT_STATE_DIR}/cache"
+
+    case "${action}" in
+        build)
+            mkdir -p "${cache_dir}"
+            log_info "Cache directory: ${cache_dir}"
+            log_ok "Cache initialized."
+            ;;
+        clean)
+            if [[ -d "${cache_dir}" ]]; then
+                rm -rf "${cache_dir}"/*
+                log_ok "Cache cleaned."
+            else
+                log_info "No cache to clean."
+            fi
+            ;;
+        *)
+            log_error "Unknown cache action: ${action}. Use 'build' or 'clean'."
+            ;;
+    esac
+}
+
+# ------------------------------------------------------------------------------
+# CLI subcommand: benchmark
+# ------------------------------------------------------------------------------
+_cmd_benchmark() {
+    log_info "Running RabbitHole System Benchmarks..."
+    echo ""
+
+    # CPU info
+    echo "--- CPU ---"
+    if [[ -f /proc/cpuinfo ]]; then
+        grep -c '^processor' /proc/cpuinfo 2>/dev/null | xargs echo "  Cores:"
+        grep 'model name' /proc/cpuinfo 2>/dev/null | head -1 | sed 's/.*: //' | xargs echo "  Model:"
+    fi
+    echo ""
+
+    # Memory
+    echo "--- Memory ---"
+    if command -v free &> /dev/null; then
+        free -h | head -2
+    fi
+    echo ""
+
+    # Disk IO (simple)
+    echo "--- Disk IO ---"
+    if command -v dd &> /dev/null; then
+        dd if=/dev/zero of=/tmp/rabbithole_bench bs=1M count=100 2>&1 | tail -1 || true
+        rm -f /tmp/rabbithole_bench
+    fi
+    echo ""
+
+    # Nmap speed if available
+    if command -v nmap &> /dev/null; then
+        echo "--- Nmap ---"
+        nmap --version 2>/dev/null | head -1
+        echo "  (run 'nmap -v localhost' for speed test)"
+    fi
+    echo ""
+
+    # Docker performance
+    if command -v docker &> /dev/null; then
+        echo "--- Docker ---"
+        docker version --format '{{.Server.Version}}' 2>/dev/null || echo "  Docker: not responding"
+    fi
+}
+
+# ------------------------------------------------------------------------------
+# CLI subcommand: update
+# ------------------------------------------------------------------------------
+_cmd_update() {
+    rabbit_state_init
+    log_info "Updating RabbitHole roles and tools..."
+    log_info "Update functionality will re-apply plugin manifests."
+    log_info "For Git-based tools, pulls latest from their repositories."
+
+    while IFS= read -r role; do
+        local plugin_dir
+        plugin_dir="$(plugin_find_by_name "${role}")"
+        if [[ -n "${plugin_dir}" ]]; then
+            log_task "Re-applying ${role}..."
+            _install_role "${plugin_dir}" "${role}"
+        fi
+    done < <(rabbit_state_get_installed_roles)
+
+    log_ok "Update complete."
+}
+
+# ------------------------------------------------------------------------------
+# Dry-run mode
+# ------------------------------------------------------------------------------
+_setup_dry_run() {
+    RABBIT_DRY_RUN=true
+    log_info "DRY RUN MODE — No changes will be made."
+}
+
+# ------------------------------------------------------------------------------
+# MAIN DISPATCH
+# ------------------------------------------------------------------------------
+_main() {
+    local args=()
+
+    # Parse global options
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --dry-run)
+                _setup_dry_run
+                shift
+                ;;
+            --quiet)
+                RABBIT_QUIET=true
+                shift
+                ;;
+            --version)
+                _version
+                exit 0
+                ;;
+            --help)
+                _usage
+                exit 0
+                ;;
+            *)
+                args+=("$1")
+                shift
+                ;;
+        esac
+    done
+
+    set -- "${args[@]}"
+
+    if [[ $# -eq 0 ]]; then
+        _interactive_menu
+        return 0
+    fi
+
+    local cmd="$1"
+    shift
+
+    case "${cmd}" in
+        install)
+            _cmd_install "$@"
+            ;;
+        remove)
+            _cmd_remove "$@"
+            ;;
+        status)
+            _cmd_status
+            ;;
+        verify)
+            _cmd_verify
+            ;;
+        doctor)
+            _cmd_doctor
+            ;;
+        update)
+            _cmd_update
+            ;;
+        snapshot)
+            _cmd_snapshot "$@"
+            ;;
+        restore)
+            _cmd_restore "$@"
+            ;;
+        cache)
+            _cmd_cache "$@"
+            ;;
+        benchmark)
+            _cmd_benchmark
+            ;;
+        --version)
+            _version
+            ;;
+        --help)
+            _usage
+            ;;
+        *)
+            log_error "Unknown command: ${cmd}. Use 'rabbithole --help' for usage."
+            ;;
+    esac
+}
+
+_main "$@"

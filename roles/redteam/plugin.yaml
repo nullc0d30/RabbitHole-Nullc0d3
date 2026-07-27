@@ -1,0 +1,24 @@
+name: "Red Team Operator"
+description: "Advanced C2 and adversary emulation tools (RESTRICTED USE)"
+version: "1.0.0"
+author: "NullC0d3"
+warning: true
+docker: false
+
+native:
+  - "ansible/ansible/ansible"
+  - "terraform/terraform/terraform"
+
+go:
+  - "donut github.com/Binject/donut@latest"
+  - "scarecrow github.com/optiv/ScareCrow@latest"
+  - "ligolo-ng github.com/nicocha30/ligolo-ng@latest"
+  - "chisel github.com/jpillora/chisel@latest"
+
+git:
+  - "sliver https://github.com/BishopFox/sliver.git make"
+  - "empire https://github.com/BC-SECURITY/Empire.git ./setup/install.sh"
+  - "HunterX https://github.com/nullc0d30/HunterX.git pip3 install -r requirements.txt"
+
+custom:
+  - "if ! command -v msfconsole &>/dev/null; then apt-get install -y metasploit-framework 2>/dev/null || (curl https://raw.githubusercontent.com/rapid7/metasploit-omnibus/master/config/templates/metasploit-framework-wrappers/msfupdate.erb > /tmp/msfinstall && chmod 755 /tmp/msfinstall && /tmp/msfinstall); fi"

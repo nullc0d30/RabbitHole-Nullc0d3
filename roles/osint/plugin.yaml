@@ -1,0 +1,29 @@
+name: "OSINT Analyst"
+description: "Deep dive information gathering and reconnaissance tools"
+version: "1.0.0"
+author: "NullC0d3"
+warning: false
+docker: false
+
+native:
+  - "tor/tor/tor"
+
+go:
+  - "amass github.com/owasp-amass/amass/v4/...@master"
+  - "subfinder github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest"
+  - "assetfinder github.com/tomnomnom/assetfinder@latest"
+  - "dnsx github.com/projectdiscovery/dnsx/cmd/dnsx@latest"
+  - "httpx github.com/projectdiscovery/httpx/cmd/httpx@latest"
+
+pipx:
+  - "theHarvester git+https://github.com/laramies/theHarvester.git"
+  - "shodan shodan"
+  - "censys censys"
+  - "sherlock sherlock-project"
+  - "maigret maigret"
+  - "holehe holehe"
+  - "social-analyzer social-analyzer"
+  - "spiderfoot spiderfoot"
+
+custom:
+  - "apt-get install -y maltego 2>/dev/null || echo 'Maltego requires manual installation on this OS.'"

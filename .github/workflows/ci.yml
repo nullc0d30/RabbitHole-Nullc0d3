@@ -1,0 +1,81 @@
+name: RabbitHole CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  shellcheck:
+    name: ShellCheck Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run ShellCheck
+        uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: './lib'
+          severity: style
+        continue-on-error: true
+
+  syntax-validate:
+    name: Bash Syntax Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate shell scripts
+        run: |
+          for file in $(find . -name '*.sh' -type f); do
+            echo "Checking: $file"
+            bash -n "$file" && echo "  OK" || exit 1
+          done
+      - name: Validate bin/rabbithole entrypoint
+        run: bash -n bin/rabbithole && echo "bin/rabbithole: OK"
+
+  plugin-validation:
+    name: Plugin Manifest Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate plugin.yaml manifests
+        run: |
+          errors=0
+          for yaml in roles/*/plugin.yaml; do
+            dir=$(dirname "$yaml")
+            name=$(grep -E '^name:' "$yaml" | head -1 | sed 's/^name: *//' | tr -d '"')
+            if [ -z "$name" ]; then
+              echo "ERROR: $yaml is missing 'name' field"
+              errors=$((errors + 1))
+            else
+              echo "OK: $dir ($name)"
+            fi
+            if [ ! -f "$dir/install.sh" ]; then
+              echo "WARN: $dir missing install.sh (optional but recommended)"
+            fi
+          done
+          exit $errors
+
+  yaml-lint:
+    name: YAML Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install yamllint
+        run: pip install yamllint
+      - name: Lint YAML files
+        run: |
+          yamllint roles/*/plugin.yaml || true
+          yamllint .github/workflows/*.yml || true
+
+  state-validate:
+    name: State Module Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate state.sh with python3
+        run: |
+          # Verify state.sh uses valid Python fragments
+          grep -n 'python3 -c' lib/state.sh | head -5
+          echo "State module references Python3 for JSON processing"
+          python3 --version

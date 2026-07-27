@@ -1,0 +1,24 @@
+name: "DFIR Analyst"
+description: "Digital Forensics and Incident Response tools"
+version: "1.0.0"
+author: "NullC0d3"
+warning: false
+docker: false
+
+native:
+  - "sleuthkit/sleuthkit/sleuthkit"
+  - "yara/yara/yara"
+  - "ghidra/ghidra/ghidra"
+  - "radare2/radare2/radare2"
+  - "autopsy/autopsy/autopsy"
+  - "plaso-tools/plaso/plaso"
+
+pipx:
+  - "volatility3 git+https://github.com/volatilityfoundation/volatility3.git"
+  - "rekall rekall-agent"
+  - "timesketch timesketch"
+  - "aleapp aleapp"
+  - "ileapp ileapp"
+
+wget:
+  - "capa https://github.com/mandiant/capa/releases/latest/download/capa-linux"

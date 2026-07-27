@@ -319,6 +319,8 @@ function install_redteam() {
     install_go "ligolo-ng" "github.com/nicocha30/ligolo-ng@latest"
     install_go "chisel" "github.com/jpillora/chisel@latest"
     
+    install_git "HunterX" "https://github.com/nullc0d30/HunterX.git" "pip3 install -r requirements.txt"
+
     install_native "ansible" "ansible" "ansible" "ansible"
     install_native "terraform" "terraform" "terraform" "terraform"
 }
