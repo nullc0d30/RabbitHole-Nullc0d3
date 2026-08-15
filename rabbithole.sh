@@ -172,6 +172,98 @@ function install_git() {
         eval "$install_script" >> "$LOG_FILE" 2>&1
     fi
     log_ok "$tool installed (Git)."
+
+    # Make the cloned tool callable from anywhere by symlinking its binary
+    rabbit_link_git_bin "$tool"
+}
+
+# ------------------------------------------------------------------------------
+# PATH RESOLUTION HELPERS (git / cargo / global)
+# ------------------------------------------------------------------------------
+
+# Link a binary named $1 found in any of the given directories into $BIN_DIR.
+# Returns 0 on success, 1 if no binary was found.
+function rabbit_link_bin() {
+    local tool=$1
+    shift
+    local dir
+    for dir in "$@"; do
+        if [[ -n "$dir" && -f "$dir/$tool" && -x "$dir/$tool" ]]; then
+            ln -sf "$dir/$tool" "$BIN_DIR/$tool"
+            log_ok "$tool linked into $BIN_DIR"
+            return 0
+        fi
+    done
+    return 1
+}
+
+# Locate and symlink a Git-cloned tool's executable into $BIN_DIR.
+function rabbit_link_git_bin() {
+    local tool=$1
+    local target_dir="/opt/$tool"
+
+    # 1) Common binary locations
+    rabbit_link_bin "$tool" \
+        "$target_dir" \
+        "$target_dir/bin" \
+        "$target_dir/dist" \
+        "$target_dir/build" \
+        "$target_dir/target/release" \
+        "$target_dir/target/debug" \
+        "$target_dir/.bin" && return 0
+
+    # 2) Fallback: any executable file named exactly $tool under the repo
+    local found
+    found=$(find "$target_dir" -type f -name "$tool" -perm -u+x 2>/dev/null | head -n1)
+    if [[ -n "$found" ]]; then
+        ln -sf "$found" "$BIN_DIR/$tool"
+        log_ok "$tool linked into $BIN_DIR"
+        return 0
+    fi
+
+    log_warn "$tool installed at $target_dir but no binary auto-linked; add its bin dir to PATH manually if needed."
+    return 1
+}
+
+# Install a Rust/Cargo tool and symlink its binary into $BIN_DIR.
+# $1 = tool name, remaining args = cargo install arguments (defaults to $1).
+function install_cargo() {
+    local tool=$1
+    shift
+    local cargo_args="${*:-$tool}"
+
+    if ! command -v cargo &> /dev/null; then
+        log_warn "Cargo not available. Skipping $tool."
+        return 1
+    fi
+
+    log_task "Installing $tool via Cargo..."
+    if cargo install $cargo_args >> "$LOG_FILE" 2>&1; then
+        rabbit_link_bin "$tool" "/root/.cargo/bin" "$HOME/.cargo/bin" && \
+            log_ok "$tool installed (Cargo)." || \
+            log_warn "$tool built but not auto-linked; ensure ~/.cargo/bin is on PATH."
+        return 0
+    else
+        log_warn "Failed to install $tool via Cargo."
+        return 1
+    fi
+}
+
+# Persist RabbitHole tool directories on PATH for the current session and for
+# all future login shells (via /etc/profile.d), so installed tools are callable
+# from anywhere regardless of install method.
+function rabbit_ensure_path() {
+    export PATH="$PATH:$BIN_DIR:/root/.cargo/bin:$HOME/.cargo/bin:/root/.local/bin:$HOME/.local/bin"
+
+    local prof="/etc/profile.d/rabbithole.sh"
+    if [[ ! -f "$prof" ]]; then
+        cat > "$prof" <<'EOF'
+# RabbitHole PATH additions
+export PATH="$PATH:$HOME/.cargo/bin:$HOME/.local/bin:/usr/local/bin"
+EOF
+        chmod 644 "$prof"
+        log_ok "Persisted RabbitHole PATH in $prof"
+    fi
 }
 
 # ------------------------------------------------------------------------------
@@ -278,10 +370,9 @@ function install_pentester() {
     install_native "nmap" "nmap" "nmap" "nmap"
     install_native "masscan" "masscan" "masscan" "masscan"
     
-    # Rustscan usually requires cargo or .deb
+    # Rustscan via cargo (symlinked to PATH) or native fallback
     if command -v cargo &> /dev/null; then
-        log_task "Installing rustscan via cargo..."
-        cargo install rustscan >> "$LOG_FILE" 2>&1
+        install_cargo "rustscan" "rustscan"
     else
         # Try native (kali has it)
         install_native "rustscan" "rustscan" "rustscan" "rustscan" || log_warn "Install Rust/Cargo for rustscan."
@@ -319,6 +410,8 @@ function install_redteam() {
     install_go "ligolo-ng" "github.com/nicocha30/ligolo-ng@latest"
     install_go "chisel" "github.com/jpillora/chisel@latest"
     
+    install_git "HunterX" "https://github.com/nullc0d30/HunterX.git" "pip3 install -r requirements.txt"
+
     install_native "ansible" "ansible" "ansible" "ansible"
     install_native "terraform" "terraform" "terraform" "terraform"
 }
@@ -341,9 +434,9 @@ function install_blueteam() {
 
     install_pipx "sigma-cli" "sigma-cli"
     
-    # Chainsaw (Rust)
+    # Chainsaw (Rust) — git-based cargo install, then symlinked to PATH
     if command -v cargo &> /dev/null; then
-        cargo install --git https://github.com/WithSecureLabs/chainsaw >> "$LOG_FILE" 2>&1
+        install_cargo "chainsaw" "--git https://github.com/WithSecureLabs/chainsaw"
     fi
 
     # TheHive/Cortex/Hayabusa: Often simpler to just Git Clone for analysis
@@ -596,6 +689,7 @@ check_root
 detect_os
 check_connectivity
 install_base_deps
+rabbit_ensure_path
 
 echo ""
 echo "SELECT YOUR ROLE(S):"
