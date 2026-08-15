@@ -1,0 +1,7 @@
+# RabbitHole Lock File
+# Pinned versions for reproducible installations
+# Auto-generated. Do not edit manually unless you know what you are doing.
+#
+# Format: method:tool:source:version_hash
+
+rabbitlock_version=1.0

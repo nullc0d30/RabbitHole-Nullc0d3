@@ -1,0 +1,26 @@
+name: "Blue Team / SOC Analyst"
+description: "Defense, monitoring, and log analysis tools"
+version: "1.0.0"
+author: "NullC0d3"
+warning: false
+docker: false
+
+native:
+  - "osquery/osquery/osquery"
+  - "jq/jq/jq"
+  - "yq/yq/yq"
+  - "wazuh-agent/wazuh-agent/wazuh-agent"
+
+pipx:
+  - "sigma-cli sigma-cli"
+
+wget:
+  - "velociraptor https://github.com/Velocidex/velociraptor/releases/latest/download/velociraptor-linux-amd64"
+
+cargo:
+  - "chainsaw chainsaw"
+
+git:
+  - "hayabusa https://github.com/Yamato-Security/hayabusa.git"
+  - "thehive https://github.com/TheHive-Project/TheHive.git"
+  - "cortex https://github.com/TheHive-Project/Cortex.git"

@@ -1,0 +1,21 @@
+name: "Threat Intelligence Analyst"
+description: "Threat data platforms, visualizers, and intelligence tools"
+version: "1.0.0"
+author: "NullC0d3"
+warning: false
+docker: true
+docker_stack: "threat-intel"
+
+native:
+  - "intelmq/intelmq/intelmq"
+
+pipx:
+  - "threatfox threatfox-api"
+  - "otx-cli OTXv2"
+  - "vt-cli vt-py"
+  - "abuseipdb abuseipdb"
+
+git:
+  - "misp-modules https://github.com/MISP/misp-modules.git"
+  - "opencti https://github.com/OpenCTI-Platform/opencti.git"
+  - "yeti https://github.com/yeti-platform/yeti.git"
