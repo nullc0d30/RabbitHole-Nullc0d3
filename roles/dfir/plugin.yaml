@@ -18,7 +18,5 @@ pipx:
   - "rekall rekall-agent"
   - "timesketch timesketch"
   - "aleapp aleapp"
-  - "ileapp ileapp"
-
-wget:
-  - "capa https://github.com/mandiant/capa/releases/latest/download/capa-linux"
+  - "ileapp git+https://github.com/abrignoni/iLEAPP.git"
+  - "capa capa"

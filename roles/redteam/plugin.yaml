@@ -10,7 +10,7 @@ native:
   - "terraform/terraform/terraform"
 
 go:
-  - "donut github.com/Binject/donut@latest"
+  - "donut github.com/TheWover/donut@latest"
   - "scarecrow github.com/optiv/ScareCrow@latest"
   - "ligolo-ng github.com/nicocha30/ligolo-ng@latest"
   - "chisel github.com/jpillora/chisel@latest"

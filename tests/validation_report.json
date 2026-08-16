@@ -1,0 +1,16 @@
+{
+  "total": 115,
+  "passed": 64,
+  "info": 51,
+  "failed": 0,
+  "method_counts": {
+    "go": 19,
+    "pipx": 24,
+    "native": 49,
+    "custom": 3,
+    "cargo": 3,
+    "git": 14,
+    "wget": 3
+  },
+  "failures": []
+}

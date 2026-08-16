@@ -10,7 +10,7 @@ native:
   - "intelmq/intelmq/intelmq"
 
 pipx:
-  - "threatfox threatfox-api"
+  - "threatfox threatfox"
   - "otx-cli OTXv2"
   - "vt-cli vt-py"
   - "abuseipdb abuseipdb"

@@ -15,7 +15,7 @@ pipx:
   - "sigma-cli sigma-cli"
 
 wget:
-  - "velociraptor https://github.com/Velocidex/velociraptor/releases/latest/download/velociraptor-linux-amd64"
+  - "velociraptor https://github.com/Velocidex/velociraptor/releases/latest/download/velociraptor-v0.77.2-linux-amd64"
 
 cargo:
   - "chainsaw chainsaw"

@@ -380,7 +380,7 @@ function install_pentester() {
 
     install_native "netcat" "netcat-traditional" "nmap-ncat" "gnu-netcat"
     install_pipx "impacket" "impacket"
-    install_pipx "crackmapexec" "crackmapexec"
+    install_pipx "crackmapexec" "git+https://github.com/Pennyw0rth/NetExec.git"
     
     # Bloodhound (Ingestors usually via method, GUI via apt)
     install_native "bloodhound" "bloodhound" "bloodhound" "bloodhound"
@@ -405,7 +405,7 @@ function install_redteam() {
     # C2 Frameworks & Tools
     install_git "sliver" "https://github.com/BishopFox/sliver.git" "make"
     install_git "empire" "https://github.com/BC-SECURITY/Empire.git" "./setup/install.sh"
-    install_go "donut" "github.com/Binject/donut@latest" # Sometimes fails, binary preferred
+    install_go "donut" "github.com/TheWover/donut@latest" # Sometimes fails, binary preferred
     install_go "scarecrow" "github.com/optiv/ScareCrow@latest"
     install_go "ligolo-ng" "github.com/nicocha30/ligolo-ng@latest"
     install_go "chisel" "github.com/jpillora/chisel@latest"
@@ -428,7 +428,7 @@ function install_blueteam() {
     # Velociraptor (Just binary)
     if [ ! -f "$BIN_DIR/velociraptor" ]; then
         log_task "Downloading Velociraptor..."
-        wget https://github.com/Velocidex/velociraptor/releases/latest/download/velociraptor-linux-amd64 -O "$BIN_DIR/velociraptor"
+        wget https://github.com/Velocidex/velociraptor/releases/latest/download/velociraptor-v0.77.2-linux-amd64 -O "$BIN_DIR/velociraptor"
         chmod +x "$BIN_DIR/velociraptor"
     fi
 
@@ -458,17 +458,12 @@ function install_dfir() {
     install_pipx "timesketch" "timesketch"
     install_native "yara" "yara" "yara" "yara"
     
-    # Capa
-    if [ ! -f "$BIN_DIR/capa" ]; then
-        log_task "Downloading Capa..."
-        wget https://github.com/mandiant/capa/releases/latest/download/capa-linux -O "$BIN_DIR/capa"
-        chmod +x "$BIN_DIR/capa"
-    fi
-    
+    install_pipx "capa" "capa"
+
     install_native "ghidra" "ghidra" "ghidra" "ghidra"
     install_native "radare2" "radare2" "radare2" "radare2"
     install_pipx "aleapp" "aleapp"
-    install_pipx "ileapp" "ileapp"
+    install_git "ileapp" "https://github.com/abrignoni/iLEAPP.git" "pip install -r requirements.txt"
 }
 
 function deploy_threat_stack() {
@@ -657,7 +652,7 @@ function install_threatintel() {
     install_git "yeti" "https://github.com/yeti-platform/yeti.git"
     
     # Clients
-    install_pipx "threatfox" "threatfox-api"
+    install_pipx "threatfox" "threatfox"
     install_pipx "otx-cli" "OTXv2"
     install_pipx "vt-cli" "vt-py"
     install_pipx "abuseipdb" "abuseipdb"
