@@ -83,3 +83,8 @@ log_step() {
     local label="$3"
     echo -e "${RABBIT_CYAN}[${current}/${total}]${RABBIT_NC} ${label}"
 }
+
+
+
+
+

@@ -9,3 +9,8 @@ if command -v capa &> /dev/null; then
 fi
 
 log_info "DFIR: Autopsy may require additional Java dependencies on some distributions."
+
+
+
+
+

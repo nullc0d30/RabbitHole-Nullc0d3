@@ -14,7 +14,7 @@ declare -a RABBIT_LOADED_PLUGINS=()
 
 # ------------------------------------------------------------------------------
 # Parse a YAML value by key from plugin.yaml
-# Uses grep + sed — no external YAML parser dependency
+# Uses grep + sed ? no external YAML parser dependency
 # ------------------------------------------------------------------------------
 plugin_yaml_value() {
     local yaml_file="$1"
@@ -203,3 +203,8 @@ plugin_get_by_index() {
 plugin_count() {
     plugin_discover_all | wc -l
 }
+
+
+
+
+

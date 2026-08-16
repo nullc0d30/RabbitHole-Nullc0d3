@@ -5,3 +5,8 @@
 
 log_info "OSINT Analyst: Additional setup steps..."
 log_info "Maltego: If not available via package manager, download manually from https://www.maltego.com/"
+
+
+
+
+

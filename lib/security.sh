@@ -186,3 +186,8 @@ validate_file_permissions() {
 sanitize_path_component() {
     echo "$1" | tr -dc 'a-zA-Z0-9._-'
 }
+
+
+
+
+

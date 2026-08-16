@@ -9,7 +9,7 @@
 RABBIT_RED='\033[0;31m'
 RABBIT_NC='\033[0m'
 
-# Detection results — set by detect_os()
+# Detection results ? set by detect_os()
 OS_NAME=""
 OS_VERSION_ID=""
 OS_ARCH=""
@@ -64,7 +64,7 @@ detect_os() {
             ;;
     esac
 
-    log_info "Detected OS: ${OS_NAME} (${OS_ARCH}) — using ${PKG_MGR}"
+    log_info "Detected OS: ${OS_NAME} (${OS_ARCH}) ? using ${PKG_MGR}"
 }
 
 check_connectivity() {
@@ -120,3 +120,8 @@ install_base_deps() {
     fi
     export PATH="${PATH}:/root/.local/bin"
 }
+
+
+
+
+

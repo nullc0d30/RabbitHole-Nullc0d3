@@ -241,3 +241,8 @@ assert_file_exists "${RABBIT_ROOT}/config/rabbit.lock" "rabbit.lock exists"
 # ------------------------------------------------------------------------------
 print_result
 exit ${TESTS_FAILED}
+
+
+
+
+

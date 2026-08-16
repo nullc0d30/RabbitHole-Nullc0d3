@@ -9,3 +9,8 @@ log_info "Blue Team: Velociraptor downloaded via wget to /usr/local/bin"
 if command -v velociraptor &> /dev/null; then
     log_ok "Velociraptor available: $(velociraptor --version 2>/dev/null || echo 'version unknown')"
 fi
+
+
+
+
+

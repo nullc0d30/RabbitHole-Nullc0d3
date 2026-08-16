@@ -148,3 +148,8 @@ rabbit_ensure_all_base() {
     rabbit_ensure_golang
     rabbit_ensure_docker
 }
+
+
+
+
+

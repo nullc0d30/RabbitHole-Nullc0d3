@@ -434,7 +434,7 @@ function install_blueteam() {
 
     install_pipx "sigma-cli" "sigma-cli"
     
-    # Chainsaw (Rust) — git-based cargo install, then symlinked to PATH
+    # Chainsaw (Rust) ? git-based cargo install, then symlinked to PATH
     if command -v cargo &> /dev/null; then
         install_cargo "chainsaw" "--git https://github.com/WithSecureLabs/chainsaw"
     fi
@@ -672,9 +672,9 @@ function install_threatintel() {
 # ------------------------------------------------------------------------------
 clear
 echo -e "${RED}"
-echo "    █▀▀█ █▀▀█ █▀▀▄ █▀▀▄ ▀█▀ ▀▀█▀▀ █   █ █▀▀█ █   █▀▀"
-echo "    █▄▄▀ █▄▄█ █▀▀▄ █▀▀▄  █    █   █▀▀▄█ █  █ █   █▀▀"
-echo "    ▀  ▀ ▀  ▀ ▀▀▀  ▀▀▀  ▀▀▀   ▀   ▀   ▀ ▀▀▀▀ ▀▀▀ ▀▀▀"
+echo "    ???? ???? ???? ???? ??? ????? ?   ? ???? ?   ???"
+echo "    ???? ???? ???? ????  ?    ?   ????? ?  ? ?   ???"
+echo "    ?  ? ?  ? ???  ???  ???   ?   ?   ? ???? ??? ???"
 echo "                  By NULLC0D3"
 echo "         Universal Cybersecurity Environment Installer"
 echo -e "${NC}"
@@ -735,3 +735,8 @@ log_info "Please restart your terminal or source your profile."
 log_info "Log file: $LOG_FILE"
 echo ""
 echo "NullC0d3 RabbitHole - Disengage."
+
+
+
+
+

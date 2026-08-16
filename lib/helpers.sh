@@ -43,7 +43,7 @@ install_native() {
     log_task "Installing ${tool} via ${PKG_MGR} (${pkg})..."
     local start_time
     start_time="$(_rabbit_timestamp)"
-    if ${PKG_INSTALL_CMD} "${pkg}" >> "${RABBIT_LOG_FILE}" 2>&1; then
+    if ${PKG_INSTALL_CMD} "${pkg}"; then
         log_ok "${tool} installed."
         _record_install "native" "${tool}" "${pkg}" "${start_time}" "$(_rabbit_timestamp)" 0
         return 0
@@ -78,7 +78,7 @@ install_go() {
     local start_time
     start_time="$(_rabbit_timestamp)"
 
-    if go install -v "${path}" >> "${RABBIT_LOG_FILE}" 2>&1; then
+    if go install -v "${path}"; then
         log_ok "${tool} installed (Go)."
         local gobin
         gobin="$(go env GOPATH 2>/dev/null || echo '/root/go')/bin/${tool}"
@@ -118,14 +118,14 @@ install_pipx() {
     local start_time
     start_time="$(_rabbit_timestamp)"
 
-    if pipx install "${pkg_name}" --include-deps --force >> "${RABBIT_LOG_FILE}" 2>&1; then
+    if pipx install "${pkg_name}" --include-deps --force; then
         log_ok "${tool} installed (pipx)."
-        pipx ensurepath >> "${RABBIT_LOG_FILE}" 2>&1 || true
+        pipx ensurepath || true
         _record_install "pipx" "${tool}" "${pkg_name}" "${start_time}" "$(_rabbit_timestamp)" 0
         return 0
     else
         log_warn "Failed to install ${tool} via pipx. Trying fallback pip..."
-        if pip3 install "${pkg_name}" >> "${RABBIT_LOG_FILE}" 2>&1; then
+        if pip3 install "${pkg_name}"; then
             log_ok "${tool} installed (pip fallback)."
             _record_install "pip" "${tool}" "${pkg_name}" "${start_time}" "$(_rabbit_timestamp)" 0
             return 0
@@ -165,10 +165,10 @@ install_git() {
     local start_time
     start_time="$(_rabbit_timestamp)"
 
-    if git clone "${repo_url}" "${target_dir}" >> "${RABBIT_LOG_FILE}" 2>&1; then
+    if git clone "${repo_url}" "${target_dir}"; then
         if [[ -n "${install_script}" ]]; then
             log_task "Running setup for ${tool}..."
-            (cd "${target_dir}" || return; eval "${install_script}" >> "${RABBIT_LOG_FILE}" 2>&1) || log_warn "Setup script for ${tool} encountered issues."
+            (cd "${target_dir}" || return; eval "${install_script}") || log_warn "Setup script for ${tool} encountered issues."
         fi
         log_ok "${tool} installed (Git)."
         _record_install "git" "${tool}" "${repo_url}" "${start_time}" "$(_rabbit_timestamp)" 0
@@ -207,7 +207,7 @@ install_cargo() {
     local start_time
     start_time="$(_rabbit_timestamp)"
 
-    if cargo install "${crate}" >> "${RABBIT_LOG_FILE}" 2>&1; then
+    if cargo install "${crate}"; then
         log_ok "${tool} installed (Cargo)."
         _record_install "cargo" "${tool}" "${crate}" "${start_time}" "$(_rabbit_timestamp)" 0
         return 0
@@ -242,7 +242,7 @@ install_wget() {
     local start_time
     start_time="$(_rabbit_timestamp)"
 
-    if wget -q "${url}" -O "${target}" 2>> "${RABBIT_LOG_FILE}"; then
+    if wget "${url}" -O "${target}"; then
         chmod +x "${target}"
         log_ok "${tool} downloaded and installed."
         _record_install "wget" "${tool}" "${url}" "${start_time}" "$(_rabbit_timestamp)" 0
@@ -274,9 +274,9 @@ install_custom() {
 
     local rc=0
     if [[ -n "${cwd}" ]]; then
-        (cd "${cwd}" || return; eval "${command_str}" >> "${RABBIT_LOG_FILE}" 2>&1) || rc=1
+        (cd "${cwd}" || return; eval "${command_str}") || rc=1
     else
-        eval "${command_str}" >> "${RABBIT_LOG_FILE}" 2>&1 || rc=1
+        eval "${command_str}" || rc=1
     fi
 
     if [[ ${rc} -eq 0 ]]; then
@@ -305,3 +305,8 @@ _record_install() {
     fi
     rabbit_state_record_tool "${method}" "${tool}" "${source}" "${start_time}" "${end_time}" "${exit_code}" 2>/dev/null || true
 }
+
+
+
+
+

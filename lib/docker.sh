@@ -225,3 +225,8 @@ docker_stack_status() {
     cd "${stack_dir}" || return 1
     docker compose ps --format json 2>/dev/null || echo "stopped"
 }
+
+
+
+
+
